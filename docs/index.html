@@ -1,0 +1,2056 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Bookokcat - Terminal EPUB Reader with Full HTML Rendering</title>
+
+        <!-- SEO Meta Tags -->
+        <meta name="description" content="Full-featured terminal EPUB reader with complete HTML/EPUB rendering, inline images, MathML support, vim keybindings, mouse support, and inline annotations. Read technical books without leaving your terminal." />
+        <meta name="keywords" content="epub reader, terminal epub reader, tui epub, command line ebook reader, rust epub reader, vim keybindings, mathml rendering, technical book reader, terminal application" />
+        <meta name="author" content="Rafael Bagmanov" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://github.com/sangshuduo/bookokcat" />
+
+        <!-- Open Graph Meta Tags (Facebook, LinkedIn) -->
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Bookokcat - Terminal EPUB Reader with Full HTML Rendering" />
+        <meta property="og:description" content="Full-featured terminal EPUB reader with complete HTML/EPUB rendering, inline images, MathML support, vim keybindings, and mouse support. Read technical books without leaving your terminal." />
+        <meta property="og:url" content="https://github.com/sangshuduo/bookokcat" />
+        <meta property="og:image" content="https://sangshuduo.github.io/bookokcat/3.png" />
+        <meta property="og:image:alt" content="Bookokcat terminal EPUB reader demo showing book reading interface" />
+        <meta property="og:site_name" content="Bookokcat" />
+
+        <!-- Twitter Card Meta Tags -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Bookokcat - Terminal EPUB Reader with Full HTML Rendering" />
+        <meta name="twitter:description" content="Full-featured terminal EPUB reader with complete HTML/EPUB rendering, inline images, MathML support, vim keybindings, and mouse support." />
+        <meta name="twitter:image" content="https://sangshuduo.github.io/bookokcat/3.png" />
+        <meta name="twitter:image:alt" content="Bookokcat terminal EPUB reader demo" />
+
+        <!-- Additional SEO -->
+        <meta name="theme-color" content="#00ff88" />
+        <meta name="application-name" content="Bookokcat" />
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+
+        <!-- Structured Data (JSON-LD) -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": "Bookokcat",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Linux, macOS, Windows",
+          "description": "Full-featured terminal EPUB reader with complete HTML/EPUB rendering, inline images, MathML support, vim keybindings, mouse support, and inline annotations. Built for reading technical books in the terminal.",
+          "url": "https://github.com/sangshuduo/bookokcat",
+          "downloadUrl": "https://crates.io/crates/bookokcat",
+          "softwareVersion": "0.1.1",
+          "author": {
+            "@type": "Person",
+            "name": "Rafael Bagmanov"
+          },
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "license": "https://opensource.org/licenses/MIT",
+          "programmingLanguage": {
+            "@type": "ComputerLanguage",
+            "name": "Rust"
+          },
+          "codeRepository": "https://github.com/sangshuduo/bookokcat",
+          "keywords": "epub reader, terminal, tui, command line, rust, vim keybindings, mathml, technical books, ebook reader",
+          "screenshot": "https://sangshuduo.github.io/bookokcat/3.png",
+          "featureList": [
+            "Complete EPUB/HTML rendering with html5ever parser",
+            "Inline images in terminal",
+            "MathML rendering to ASCII art",
+            "Syntax-highlighted code blocks",
+            "Table rendering",
+            "Vim keybindings (j/k, gg/G, /, Ctrl+o/i)",
+            "Comprehensive mouse support",
+            "Inline annotations and timestamped notes",
+            "Full-text search across books",
+            "Automatic bookmarks",
+            "Reading history tracking",
+            "Jump list navigation"
+          ],
+          "requirements": "Rust toolchain (rustup) for installation",
+          "installUrl": "https://crates.io/crates/bookokcat"
+        }
+        </script>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: "Courier New", "Courier", monospace;
+                background: #000;
+                color: #fff;
+                line-height: 1.5;
+                overflow-x: hidden;
+            }
+
+            /* Scanlines - DISABLED */
+            body::before {
+                display: none;
+            }
+
+            /* Exclude screenshots from scanlines */
+            .hero-screenshot {
+                isolation: isolate;
+            }
+
+            @keyframes scanlines {
+                0% {
+                    transform: translateY(0);
+                }
+                100% {
+                    transform: translateY(10px);
+                }
+            }
+
+            /* Vignette + Screen Curvature */
+            body::after {
+                content: "";
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 10001;
+                background: radial-gradient(
+                    ellipse at center,
+                    rgba(0, 0, 0, 0) 0%,
+                    rgba(0, 0, 0, 0.3) 100%
+                );
+                box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.5);
+            }
+
+            /* Screen flicker - DISABLED */
+            html {
+                animation: none;
+            }
+
+            /* Screen curve effect - DISABLED */
+
+            /* Header */
+            header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+                background: #000;
+                border-bottom: 1px solid #1a1a1a;
+                padding: 1.5rem 2rem;
+            }
+
+            nav {
+                max-width: 1400px;
+                margin: 0 auto;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .logo {
+                font-size: 1rem;
+                font-weight: 400;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .logo::before {
+                content: "/";
+                color: #00ff88;
+                font-size: 1.5rem;
+            }
+
+            .nav-links {
+                display: flex;
+                gap: 2rem;
+                list-style: none;
+            }
+
+            .nav-links a {
+                color: #fff;
+                text-decoration: none;
+                font-size: 0.875rem;
+                transition: color 0.2s;
+                text-transform: uppercase;
+            }
+
+            .nav-links a:hover {
+                color: #00ff88;
+            }
+
+            /* Geometric decoration */
+            .geometric-bg {
+                position: fixed;
+                top: 0;
+                right: 0;
+                width: 50%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 0;
+            }
+
+            .geometric-shape {
+                position: absolute;
+                border: 2px solid #00ff88;
+                opacity: 0.3;
+            }
+
+            .shape-1 {
+                top: 20%;
+                right: 10%;
+                width: 300px;
+                height: 300px;
+                clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            }
+
+            .shape-2 {
+                bottom: 15%;
+                right: 20%;
+                width: 200px;
+                height: 200px;
+                border-radius: 50%;
+            }
+
+            /* Hero */
+            .hero {
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                padding: 8rem 2rem 4rem;
+                position: relative;
+                background: #000;
+            }
+
+            .hero-content {
+                max-width: 1400px;
+                margin: 0 auto;
+                width: 100%;
+                position: relative;
+                z-index: 1;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 6rem;
+                align-items: center;
+            }
+
+            .hero-text {
+                max-width: 600px;
+                position: relative;
+                z-index: 2;
+            }
+
+            .hero-screenshots {
+                position: relative;
+                z-index: 2;
+                width: 740px;
+                height: 462px;
+                overflow: hidden;
+            }
+
+            /* Vignette effect on entire slideshow */
+            .hero-screenshots::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                box-shadow: inset 0 0 150px 50px rgba(0, 0, 0, 0.95);
+                pointer-events: none;
+                z-index: 10;
+            }
+
+            .screenshots-container {
+                display: flex;
+                transition: transform 0.5s ease;
+                height: 100%;
+            }
+
+            .hero-screenshot {
+                border: none;
+                overflow: hidden;
+                background: #000;
+                flex-shrink: 0;
+                width: 740px;
+                height: 100%;
+                isolation: isolate;
+                position: relative;
+            }
+
+            .hero-screenshot img {
+                width: 100%;
+                height: 100%;
+                display: block;
+                object-fit: contain;
+                position: relative;
+            }
+
+            .carousel-nav {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                background: rgba(0, 0, 0, 0.5);
+                border: 1px solid #333;
+                color: #fff;
+                font-size: 1.5rem;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                z-index: 10;
+                transition: all 0.2s;
+                font-family: monospace;
+            }
+
+            .carousel-nav:hover {
+                background: rgba(0, 255, 136, 0.2);
+                border-color: #00ff88;
+                color: #00ff88;
+            }
+
+            .carousel-prev {
+                left: 10px;
+            }
+
+            .carousel-next {
+                right: 10px;
+            }
+
+            .carousel-indicators {
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                display: flex;
+                gap: 0.5rem;
+                z-index: 10;
+            }
+
+            .carousel-dot {
+                width: 8px;
+                height: 8px;
+                border: 1px solid #333;
+                background: transparent;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .carousel-dot.active {
+                background: #00ff88;
+                border-color: #00ff88;
+            }
+
+            /* Remove CRT effects from images */
+            .hero-screenshot::before,
+            .hero-screenshot::after {
+                display: none !important;
+            }
+
+            .hero-screenshot,
+            .hero-screenshot img {
+                mix-blend-mode: normal;
+            }
+
+            /* Ensure screenshots container is above scanlines */
+            .hero-screenshots {
+                position: relative;
+                z-index: 10002;
+            }
+
+            .screenshot-placeholder {
+                width: 100%;
+                aspect-ratio: 3/2;
+                background: #0a0a0a;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+            }
+
+            .screenshot-placeholder::before {
+                content: "";
+                position: absolute;
+                top: 10%;
+                left: 10%;
+                right: 10%;
+                bottom: 10%;
+                border: 1px solid #1a1a1a;
+            }
+
+            .placeholder-text {
+                font-size: 0.75rem;
+                letter-spacing: 0.2em;
+                color: #333;
+                z-index: 1;
+            }
+
+            .hero-tag {
+                display: inline-block;
+                border: 1px solid #fff;
+                padding: 0.5rem 1.5rem;
+                font-size: 0.75rem;
+                letter-spacing: 0.2em;
+                margin-bottom: 3rem;
+                text-transform: uppercase;
+            }
+
+            h1 {
+                font-size: 5rem;
+                font-weight: 400;
+                line-height: 1.1;
+                margin-bottom: 3rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                position: relative;
+            }
+
+            h1::before {
+                content: attr(data-text);
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 0, 0, 0.15),
+                    rgba(0, 0, 0, 0.15) 1px,
+                    transparent 1px,
+                    transparent 2px
+                );
+                pointer-events: none;
+                z-index: 1;
+            }
+
+            h1 {
+                animation: textFlicker 0.3s infinite;
+            }
+
+            @keyframes textFlicker {
+                0% {
+                    opacity: 0.97;
+                }
+                50% {
+                    opacity: 1;
+                }
+                100% {
+                    opacity: 0.97;
+                }
+            }
+
+            h1 .highlight {
+                color: #00ff88;
+                text-shadow:
+                    0 0 20px #00ff88,
+                    0 0 40px #00ff88,
+                    0 0 60px #00ff88,
+                    2px 0 2px rgba(255, 0, 0, 0.5),
+                    -2px 0 2px rgba(0, 0, 255, 0.5);
+            }
+
+            .hero-subtitle {
+                font-size: 1rem;
+                max-width: 600px;
+                line-height: 1.8;
+                margin-bottom: 4rem;
+                color: #fff;
+            }
+
+            .hero-cta {
+                display: inline-block;
+                background: #00ff88;
+                color: #000;
+                padding: 1rem 3rem;
+                text-decoration: none;
+                font-size: 0.875rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                transition: transform 0.2s;
+                text-shadow: none;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .hero-cta::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 0, 0, 0.1),
+                    rgba(0, 0, 0, 0.1) 1px,
+                    transparent 1px,
+                    transparent 2px
+                );
+                pointer-events: none;
+                z-index: 1;
+            }
+
+            .hero-cta {
+                animation: buttonFlicker 0.4s infinite;
+            }
+
+            @keyframes buttonFlicker {
+                0% {
+                    opacity: 0.98;
+                }
+                50% {
+                    opacity: 1;
+                }
+                100% {
+                    opacity: 0.98;
+                }
+            }
+
+            .hero-cta:hover {
+                transform: scale(1.05);
+            }
+
+            /* Section */
+            .section {
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 8rem 2rem;
+                border-top: 1px solid #1a1a1a;
+                position: relative;
+                background: #000;
+            }
+
+            .section-label {
+                font-size: 0.75rem;
+                letter-spacing: 0.2em;
+                margin-bottom: 3rem;
+                color: #999;
+                text-transform: uppercase;
+            }
+
+            .section-label::before {
+                content: "// ";
+                color: #00ff88;
+            }
+
+            .section-title {
+                font-size: 2.5rem;
+                font-weight: 400;
+                margin-bottom: 2rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .section-description {
+                font-size: 1rem;
+                color: #fff;
+                max-width: 600px;
+                margin-bottom: 4rem;
+                line-height: 1.8;
+            }
+
+            /* Features */
+            .features {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 3rem;
+            }
+
+            .feature {
+                border-left: 2px solid #1a1a1a;
+                padding-left: 2rem;
+                transition: border-color 0.3s;
+            }
+
+            .feature:hover {
+                border-left-color: #00ff88;
+            }
+
+            .feature-title {
+                font-size: 1.25rem;
+                margin-bottom: 1rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .feature-description {
+                font-size: 0.9rem;
+                color: #fff;
+                line-height: 1.8;
+            }
+
+            /* Terminal */
+            .terminal-section {
+                padding: 6rem 2rem;
+                border-top: 1px solid #1a1a1a;
+                background: #000;
+            }
+
+            .terminal-wrapper {
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+
+            .terminal-label {
+                font-size: 0.75rem;
+                letter-spacing: 0.2em;
+                margin-bottom: 2rem;
+                color: #999;
+                text-transform: uppercase;
+            }
+
+            .terminal-label::before {
+                content: "// ";
+                color: #00ff88;
+            }
+
+            .terminal {
+                background: #0a0a0a;
+                border: 1px solid #1a1a1a;
+                padding: 2rem;
+                font-size: 1rem;
+                line-height: 2;
+            }
+
+            .terminal-line {
+                display: flex;
+                gap: 1rem;
+            }
+
+            .terminal-prompt {
+                color: #00ff88;
+                text-shadow: 0 0 10px #00ff88;
+            }
+
+            .terminal-command {
+                color: #fff;
+            }
+
+            /* Install */
+            .install-section {
+                padding: 8rem 2rem;
+                border-top: 1px solid #1a1a1a;
+                background: #000;
+            }
+
+            .install-wrapper {
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+
+            .install-label {
+                font-size: 0.75rem;
+                letter-spacing: 0.2em;
+                margin-bottom: 2rem;
+                color: #999;
+                text-transform: uppercase;
+            }
+
+            .install-label::before {
+                content: "// ";
+                color: #00ff88;
+            }
+
+            .install-title {
+                font-size: 2rem;
+                margin-bottom: 2rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .install-description {
+                font-size: 1rem;
+                color: #fff;
+                margin-bottom: 3rem;
+                line-height: 1.8;
+            }
+
+            .install-description a {
+                color: #00ff88;
+                text-decoration: none;
+            }
+
+            .install-description a:hover {
+                text-decoration: underline;
+            }
+
+            .install-box {
+                background: #0a0a0a;
+                border: 1px solid #1a1a1a;
+                padding: 2rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 2rem;
+                max-width: 800px;
+            }
+
+            .install-command {
+                flex: 1;
+                font-size: 1rem;
+            }
+
+            .copy-btn {
+                background: #00ff88;
+                color: #000;
+                border: none;
+                padding: 0.75rem 2rem;
+                font-family: "Courier New", monospace;
+                font-size: 0.875rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: opacity 0.2s;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                text-shadow: none;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .copy-btn::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 0, 0, 0.1),
+                    rgba(0, 0, 0, 0.1) 1px,
+                    transparent 1px,
+                    transparent 2px
+                );
+                pointer-events: none;
+                z-index: 1;
+            }
+
+            .copy-btn {
+                animation: buttonFlicker 0.4s infinite;
+            }
+
+            .copy-btn:hover {
+                opacity: 0.8;
+            }
+
+            /* Links */
+            .links-section {
+                padding: 6rem 2rem;
+                border-top: 1px solid #1a1a1a;
+                background: #000;
+            }
+
+            .links-wrapper {
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+
+            .links-label {
+                font-size: 0.75rem;
+                letter-spacing: 0.2em;
+                margin-bottom: 2rem;
+                color: #999;
+                text-transform: uppercase;
+            }
+
+            .links-label::before {
+                content: "// ";
+                color: #00ff88;
+            }
+
+            .links-list {
+                list-style: none;
+            }
+
+            .links-list li {
+                border-bottom: 1px solid #1a1a1a;
+            }
+
+            .links-list a {
+                color: #fff;
+                text-decoration: none;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1.5rem 0;
+                font-size: 1rem;
+                transition: color 0.2s;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .links-list a:hover {
+                color: #00ff88;
+            }
+
+            .link-arrow {
+                color: #00ff88;
+            }
+
+            /* Footer */
+            footer {
+                border-top: 1px solid #1a1a1a;
+                padding: 3rem 2rem;
+                background: #000;
+            }
+
+            .footer-content {
+                max-width: 1400px;
+                margin: 0 auto;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 0.875rem;
+                color: #666;
+            }
+
+            .footer-links {
+                display: flex;
+                gap: 2rem;
+            }
+
+            .footer-links a {
+                color: #666;
+                text-decoration: none;
+                transition: color 0.2s;
+            }
+
+            .footer-links a:hover {
+                color: #00ff88;
+            }
+
+            /* Responsive */
+            @media (max-width: 768px) {
+                h1 {
+                    font-size: 2.5rem;
+                }
+
+                .nav-links {
+                    display: none;
+                }
+
+                .hero-content {
+                    grid-template-columns: 1fr;
+                    gap: 3rem;
+                }
+
+                .hero-screenshots {
+                    width: 100%;
+                    height: 400px;
+                    margin-top: 2rem;
+                }
+
+                .hero-screenshot {
+                    width: 280px;
+                }
+
+                .hero-screenshot:nth-child(1),
+                .hero-screenshot:nth-child(2),
+                .hero-screenshot:nth-child(3),
+                .hero-screenshot:nth-child(4) {
+                    transform: none;
+                    position: relative;
+                    margin-bottom: 1rem;
+                }
+
+                .hero-screenshot:hover {
+                    transform: scale(1.02);
+                }
+
+                .features {
+                    grid-template-columns: 1fr;
+                }
+
+                .section-title {
+                    font-size: 1.75rem;
+                }
+
+                .install-box {
+                    flex-direction: column;
+                    text-align: center;
+                }
+
+                .footer-content {
+                    flex-direction: column;
+                    gap: 2rem;
+                    text-align: center;
+                }
+
+                .geometric-bg {
+                    display: none;
+                }
+
+                .screenshots-grid {
+                    gap: 1rem;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="geometric-bg">
+            <div class="geometric-shape shape-1"></div>
+            <div class="geometric-shape shape-2"></div>
+        </div>
+
+        <header>
+            <nav>
+                <div class="logo">bookokcat</div>
+                <ul class="nav-links">
+                    <li><a href="#features">features</a></li>
+                    <li><a href="#install">install</a></li>
+                    <li>
+                        <a href="https://github.com/sangshuduo/bookokcat"
+                            >github</a
+                        >
+                    </li>
+                    <li>
+                        <a href="https://github.com/sangshuduo/bookokcat" target="_blank" rel="noopener">
+                            <img src="https://img.shields.io/github/stars/sangshuduo/bookokcat?style=social" alt="GitHub stars" style="vertical-align: middle; margin-top: -2px;">
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <section class="hero">
+                <div class="hero-content">
+                    <div class="hero-text">
+                        <div class="hero-tag">for terminal workflows</div>
+                        <h1>
+                            TERMINAL<br /><span class="highlight">EPUB</span
+                            ><br />READER
+                        </h1>
+                        <p class="hero-subtitle">
+                            // FULL-FEATURED EPUB RENDERING • IMAGES • TABLES &
+                            CODE BLOCKS • VIM KEYBINDINGS • MOUSE SUPPORT<br />INLINE
+                            ANNOTATIONS • LOCAL & GLOBAL SEARCH <br /><br />READ
+                            TECHNICAL BOOKS WITHOUT LEAVING YOUR TERMINAL
+                        </p>
+                        <a href="#install" class="hero-cta">Install</a>
+                    </div>
+                    <div class="hero-screenshots">
+                        <div class="screenshots-container">
+                            <div class="hero-screenshot">
+                                <img
+                                    src="3.png"
+                                    alt="Bookokcat help screen"
+                                    onerror="this.parentElement.innerHTML='<div class=\'screenshot-placeholder\'><div class=\'placeholder-text\'>HELP SCREEN</div></div>'"
+                                />
+                            </div>
+                            <div class="hero-screenshot">
+                                <img
+                                    src="2.png"
+                                    alt="Reading view"
+                                    onerror="this.parentElement.innerHTML='<div class=\'screenshot-placeholder\'><div class=\'placeholder-text\'>READING VIEW</div></div>'"
+                                />
+                            </div>
+                            <div class="hero-screenshot">
+                                <img
+                                    src="4.png"
+                                    alt="Book content"
+                                    onerror="this.parentElement.innerHTML='<div class=\'screenshot-placeholder\'><div class=\'placeholder-text\'>BOOK CONTENT</div></div>'"
+                                />
+                            </div>
+                            <div class="hero-screenshot">
+                                <img
+                                    src="1.png"
+                                    alt="Chapter navigation"
+                                    onerror="this.parentElement.innerHTML='<div class=\'screenshot-placeholder\'><div class=\'placeholder-text\'>NAVIGATION</div></div>'"
+                                />
+                            </div>
+                        </div>
+                        <button
+                            class="carousel-nav carousel-prev"
+                            onclick="prevSlide()"
+                        >
+                            ←
+                        </button>
+                        <button
+                            class="carousel-nav carousel-next"
+                            onclick="nextSlide()"
+                        >
+                            →
+                        </button>
+                        <div class="carousel-indicators">
+                            <div
+                                class="carousel-dot active"
+                                onclick="goToSlide(0)"
+                            ></div>
+                            <div
+                                class="carousel-dot"
+                                onclick="goToSlide(1)"
+                            ></div>
+                            <div
+                                class="carousel-dot"
+                                onclick="goToSlide(2)"
+                            ></div>
+                            <div
+                                class="carousel-dot"
+                                onclick="goToSlide(3)"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section" id="features">
+                <div class="section-label">features</div>
+                <h2 class="section-title">Built for technical reading</h2>
+                <p class="section-description">
+                    Everything you need to read and research technical books in
+                    your terminal
+                </p>
+
+                <div class="features">
+                    <div class="feature">
+                        <h3 class="feature-title">
+                            Complete EPUB/HTML rendering
+                        </h3>
+                        <p class="feature-description">
+                            Proper table layouts, syntax-highlighted code
+                            blocks, bold/italic text, blockquotes, lists, and
+                            MathML equations. Uses html5ever parser—reads like
+                            the author intended.
+                        </p>
+                    </div>
+
+                    <div class="feature">
+                        <h3 class="feature-title">Annotate & research</h3>
+                        <p class="feature-description">
+                            Press 'a' on any selection to attach timestamped
+                            notes. Full-text search across books. Copy chapters
+                            or selections. Your reading workspace in the
+                            terminal.
+                        </p>
+                    </div>
+
+                    <div class="feature">
+                        <h3 class="feature-title">
+                            Vim keybindings + mouse support
+                        </h3>
+                        <p class="feature-description">
+                            Full vim motions (j/k, gg/G, /, Ctrl+o/i) for
+                            keyboard users. Comprehensive mouse support for
+                            everyone else. Use whichever you prefer—or both.
+                        </p>
+                    </div>
+
+                    <div class="feature">
+                        <h3 class="feature-title">Never lose your place</h3>
+                        <p class="feature-description">
+                            Automatic bookmarks per book. Reading history popup
+                            (Space+h). Chapter statistics and progress tracking.
+                            Jump list remembers your navigation path.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="install-section" id="install">
+                <div class="install-wrapper">
+                    <div class="install-label">installation</div>
+                    <h2 class="install-title">Get Started</h2>
+
+                    <div style="margin-bottom: 3rem;">
+                        <h3 style="font-size: 1.25rem; margin-bottom: 1.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Prerequisites</h3>
+                        <p style="font-size: 0.95rem; color: #fff; margin-bottom: 1.5rem; line-height: 1.8;">
+                            Bookokcat requires a C compiler/linker to build dependencies. Install the build tools for your platform:
+                        </p>
+
+                        <div style="display: grid; gap: 1rem; max-width: 800px;">
+                            <div style="background: #0a0a0a; border: 1px solid #1a1a1a; padding: 1.25rem;">
+                                <div style="color: #00ff88; font-size: 0.875rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em;">Linux (Ubuntu/Debian)</div>
+                                <code style="color: #fff; font-size: 0.9rem;">sudo apt update && sudo apt install build-essential</code>
+                            </div>
+
+                            <div style="background: #0a0a0a; border: 1px solid #1a1a1a; padding: 1.25rem;">
+                                <div style="color: #00ff88; font-size: 0.875rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em;">Linux (Fedora/RHEL)</div>
+                                <code style="color: #fff; font-size: 0.9rem;">sudo dnf install gcc make</code>
+                            </div>
+
+                            <div style="background: #0a0a0a; border: 1px solid #1a1a1a; padding: 1.25rem;">
+                                <div style="color: #00ff88; font-size: 0.875rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em;">macOS</div>
+                                <code style="color: #fff; font-size: 0.9rem;">xcode-select --install</code>
+                            </div>
+
+                            <div style="background: #0a0a0a; border: 1px solid #1a1a1a; padding: 1.25rem;">
+                                <div style="color: #00ff88; font-size: 0.875rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.1em;">Windows</div>
+                                <div style="color: #fff; font-size: 0.9rem;">
+                                    Install <a href="https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022" target="_blank" style="color: #00ff88; text-decoration: underline;">Visual Studio Build Tools</a> with "Desktop development with C++" workload
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="font-size: 1.25rem; margin-bottom: 1.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Install Bookokcat</h3>
+                    <p class="install-description">
+                        Install with Cargo (Rust's package manager).
+                        <a href="https://rustup.rs">Get it at rustup.rs</a>
+                    </p>
+                    <div class="install-box">
+                        <code class="install-command"
+                            >cargo install bookokcat</code
+                        >
+                        <button class="copy-btn" onclick="copyCommand()">
+                            copy
+                        </button>
+                    </div>
+
+                    <div style="margin-top: 2rem; padding: 1.5rem; background: #0a0a0a; border: 1px solid #1a1a1a; max-width: 800px;">
+                        <div style="font-size: 0.875rem; color: #999; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.1em;">
+                            // Quick Start
+                        </div>
+                        <div style="font-size: 0.95rem; line-height: 1.8; color: #fff;">
+                            1. Navigate to a directory with EPUB files<br/>
+                            2. Run <code style="color: #00ff88; background: #000; padding: 0.2rem 0.5rem; border-radius: 2px;">bookokcat</code><br/>
+                            3. Use <code style="color: #00ff88; background: #000; padding: 0.2rem 0.5rem; border-radius: 2px;">j/k</code> to navigate, <code style="color: #00ff88; background: #000; padding: 0.2rem 0.5rem; border-radius: 2px;">Enter</code> to open a book, <code style="color: #00ff88; background: #000; padding: 0.2rem 0.5rem; border-radius: 2px;">?</code> for help
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 2rem; padding: 1.5rem; background: #0a0a0a; border: 1px solid #ff6666; max-width: 800px;">
+                        <div style="font-size: 0.875rem; color: #ff6666; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.1em;">
+                            // Troubleshooting
+                        </div>
+                        <div style="font-size: 0.95rem; line-height: 1.8; color: #fff;">
+                            <strong style="color: #ff6666;">Error: "linker 'cc' not found"</strong><br/>
+                            This means you don't have a C compiler installed. Install the build tools for your platform (see Prerequisites above), then try again.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section" style="padding: 6rem 2rem">
+                <div class="section-label">demo</div>
+                <h2 class="section-title">See it in action</h2>
+                <p class="section-description">
+                    Watch bookokcat handle real technical content
+                </p>
+
+                <div style="max-width: 800px; margin: 0 auto">
+                    <div
+                        style="
+                            background: #0a0a0a;
+                            border: 1px solid #1a1a1a;
+                            padding: 1rem;
+                            border-radius: 4px;
+                        "
+                    >
+                        <img
+                            src="https://github.com/user-attachments/assets/a45d2e6a-4d2b-4f70-a77f-ed2f7cabc8d8"
+                            alt="Bookokcat demo showing EPUB reading in terminal"
+                            style="
+                                width: 100%;
+                                display: block;
+                                border-radius: 2px;
+                            "
+                        />
+                    </div>
+                </div>
+            </section>
+
+            <section class="section" style="padding: 6rem 2rem">
+                <div class="section-label">comparison</div>
+                <h2 class="section-title">How does it compare?</h2>
+                <p class="section-description">
+                    Terminal EPUB readers compared side-by-side
+                </p>
+
+                <div
+                    style="max-width: 1200px; margin: 0 auto; overflow-x: auto"
+                >
+                    <table
+                        style="
+                            border-collapse: collapse;
+                            width: 100%;
+                            font-family:
+                                &quot;Courier New&quot;, &quot;Courier&quot;,
+                                monospace;
+                            font-size: 0.875rem;
+                            background: #0a0a0a;
+                            border: 1px solid #1a1a1a;
+                        "
+                    >
+                        <thead>
+                            <tr style="background: #000">
+                                <th
+                                    style="
+                                        text-align: left;
+                                        padding: 1rem;
+                                        border-bottom: 2px solid #00ff88;
+                                        color: #fff;
+                                    "
+                                >
+                                    Feature ↓ / Reader →
+                                </th>
+                                <th
+                                    style="
+                                        text-align: center;
+                                        padding: 1rem;
+                                        border-bottom: 2px solid #00ff88;
+                                    "
+                                >
+                                    <a
+                                        href="https://github.com/sangshuduo/bookokcat"
+                                        target="_blank"
+                                        rel="noopener"
+                                        style="
+                                            color: #00ff88;
+                                            text-decoration: underline;
+                                            cursor: pointer;
+                                        "
+                                        >Bookokcat</a
+                                    >
+                                </th>
+                                <th
+                                    style="
+                                        text-align: center;
+                                        padding: 1rem;
+                                        border-bottom: 2px solid #00ff88;
+                                    "
+                                >
+                                    <a
+                                        href="https://github.com/aeosynth/bk"
+                                        target="_blank"
+                                        rel="noopener"
+                                        style="
+                                            color: #666;
+                                            text-decoration: underline;
+                                            cursor: pointer;
+                                        "
+                                        >bk</a
+                                    >
+                                </th>
+                                <th
+                                    style="
+                                        text-align: center;
+                                        padding: 1rem;
+                                        border-bottom: 2px solid #00ff88;
+                                    "
+                                >
+                                    <a
+                                        href="https://github.com/wustho/epr"
+                                        target="_blank"
+                                        rel="noopener"
+                                        style="
+                                            color: #666;
+                                            text-decoration: underline;
+                                            cursor: pointer;
+                                        "
+                                        >epr</a
+                                    >
+                                </th>
+                                <th
+                                    style="
+                                        text-align: center;
+                                        padding: 1rem;
+                                        border-bottom: 2px solid #00ff88;
+                                    "
+                                >
+                                    <a
+                                        href="https://github.com/wustho/epy"
+                                        target="_blank"
+                                        rel="noopener"
+                                        style="
+                                            color: #666;
+                                            text-decoration: underline;
+                                            cursor: pointer;
+                                        "
+                                        >epy</a
+                                    >
+                                </th>
+                                <th
+                                    style="
+                                        text-align: center;
+                                        padding: 1rem;
+                                        border-bottom: 2px solid #00ff88;
+                                    "
+                                >
+                                    <a
+                                        href="https://github.com/wustho/baca"
+                                        target="_blank"
+                                        rel="noopener"
+                                        style="
+                                            color: #666;
+                                            text-decoration: underline;
+                                            cursor: pointer;
+                                        "
+                                        >baca</a
+                                    >
+                                </th>
+                                <th
+                                    style="
+                                        text-align: center;
+                                        padding: 1rem;
+                                        border-bottom: 2px solid #00ff88;
+                                    "
+                                >
+                                    <a
+                                        href="https://github.com/superstarryeyes/lue"
+                                        target="_blank"
+                                        rel="noopener"
+                                        style="
+                                            color: #666;
+                                            text-decoration: underline;
+                                            cursor: pointer;
+                                        "
+                                        >Lue</a
+                                    >
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    EPUB support
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                            </tr>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    Inline images in terminal
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗*
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗*
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span> (ANSI)
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                            </tr>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    MathML rendering
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                            </tr>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    Table of contents
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span>
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span>
+                                    (basic)
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span>
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span>
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                            </tr>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    Search
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span>
+                                    (chapter &amp; book)
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span>
+                                    (incremental)
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span>
+                                    (regex)
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span>
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    <span style="color: #00ff88">✓</span>
+                                    (regex)
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                            </tr>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    Bookmarks / resume
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                            </tr>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    Highlights / notes
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                            </tr>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    Text-to-speech (TTS)
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                            </tr>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    Multi-format (beyond EPUB)
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                            </tr>
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 0.75rem 1rem;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #fff;
+                                    "
+                                >
+                                    Library / history view
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #00ff88;
+                                    "
+                                >
+                                    ✓
+                                </td>
+                                <td
+                                    style="
+                                        text-align: center;
+                                        border-top: 1px solid #1a1a1a;
+                                        color: #666;
+                                    "
+                                >
+                                    ✗
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div
+                        style="
+                            font-size: 0.75rem;
+                            color: #666;
+                            margin-top: 1rem;
+                            font-family: &quot;Courier New&quot;, monospace;
+                        "
+                    >
+                        * epr/epy can open images via external viewer; not
+                        inline in the terminal.
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="footer-content">
+                <div>
+                    33,000+ lines of Rust. MIT licensed.<br/>
+                    <span style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.5rem; display: inline-block;">
+                        Icon by <a href="https://vectordoodle.gumroad.com/l/FOCLd?ref=svgrepo.com" target="_blank" style="color: #666; text-decoration: underline;">Vectordoodle</a> in CC Attribution License via <a href="https://www.svgrepo.com/" target="_blank" style="color: #666; text-decoration: underline;">SVG Repo</a>
+                    </span>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com/sangshuduo/bookokcat">github</a>
+                    <a
+                        href="https://github.com/sangshuduo/bookokcat/blob/main/LICENSE"
+                        >license</a
+                    >
+                </div>
+            </div>
+        </footer>
+
+        <script>
+            function copyCommand() {
+                navigator.clipboard.writeText("cargo install bookokcat");
+                const btn = event.target;
+                btn.textContent = "copied!";
+                setTimeout(() => {
+                    btn.textContent = "copy";
+                }, 2000);
+            }
+
+            // Slideshow functionality
+            let currentSlide = 0;
+            const container = document.querySelector(".screenshots-container");
+            const dots = document.querySelectorAll(".carousel-dot");
+            const totalSlides =
+                document.querySelectorAll(".hero-screenshot").length;
+
+            function updateSlideshow() {
+                container.style.transform = `translateX(-${currentSlide * 740}px)`;
+                dots.forEach((dot, index) => {
+                    dot.classList.toggle("active", index === currentSlide);
+                });
+            }
+
+            function nextSlide() {
+                currentSlide = (currentSlide + 1) % totalSlides;
+                updateSlideshow();
+            }
+
+            function prevSlide() {
+                currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+                updateSlideshow();
+            }
+
+            function goToSlide(index) {
+                currentSlide = index;
+                updateSlideshow();
+            }
+
+            // Keyboard navigation
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "ArrowLeft") prevSlide();
+                if (e.key === "ArrowRight") nextSlide();
+            });
+        </script>
+    </body>
+</html>
