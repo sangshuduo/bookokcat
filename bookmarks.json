@@ -1,0 +1,25 @@
+{
+  "books": {
+    "./test.pdf": {
+      "chapter_href": "OEBPS/chapter1.xhtml",
+      "node_index": 0,
+      "last_read": "2025-12-27T03:15:37.379076Z",
+      "chapter_index": 0,
+      "total_chapters": 1
+    },
+    "./Effective Python  编写高质量Python代码的59个有效方法 -- Pdg2Pic -- 2016 -- 北京_机械工业出版社 -- 13939433 -- 9bd9b6acaec3d220ad51e03b867c6fd4 -- Anna’s Archive.pdf": {
+      "chapter_href": "OEBPS/chapter1.xhtml",
+      "node_index": 0,
+      "last_read": "2025-12-27T02:22:06.543944Z",
+      "chapter_index": 0,
+      "total_chapters": 1
+    },
+    "./杜仕明语法纠错资料.pdf": {
+      "chapter_href": "OEBPS/chapter1.xhtml",
+      "node_index": 0,
+      "last_read": "2025-11-09T02:47:49.595376Z",
+      "chapter_index": 0,
+      "total_chapters": 1
+    }
+  }
+}

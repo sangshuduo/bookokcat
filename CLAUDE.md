@@ -1,0 +1,1011 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## CRITICAL RULES FOR AI ASSISTANTS
+
+1. **Testing**: ALWAYS use the existing SVG-based snapshot testing in `tests/svg_snapshots.rs`. NEVER introduce new testing frameworks or approaches.
+2. **Golden Snapshots**: NEVER update golden snapshot files with `SNAPSHOTS=overwrite` unless explicitly requested by the user. This is critical for test integrity.
+3. **Test Updates**: NEVER update any test files or test expectations unless explicitly requested by the user. This includes unit tests, integration tests, and snapshot tests.
+4. **File Creation**: Prefer editing existing files over creating new ones. Only create new files when absolutely necessary.
+5. **Code Formatting**: NEVER manually reformat code or change indentation/line breaks. ONLY use `cargo fmt` for all formatting. When editing code, preserve the existing formatting exactly and let `cargo fmt` handle any formatting changes.
+6. **Final Formatting**: ALWAYS run `cargo fmt` before reporting task completion if any code changes were made. This ensures consistent code formatting and prevents formatting-related changes in future edits.
+7. **Comments/Annotations**: NEVER modify the comment storage format or location (`.bookokcat_comments/`) without explicit user request. The YAML-based persistence is critical.
+8. **ANSI Art**: The `readme.ans` file contains binary CP437-encoded art. NEVER modify this file.
+9. **Vendored Code**: The `src/vendored/` directory contains vendored ratatui-image code. This is NOT a crates.io dependency - it's vendored for customization.
+
+## Project Overview
+
+Bookokcat is a terminal user interface (TUI) EPUB reader written in Rust (over 33,000 lines of code). It provides a comprehensive reading experience with features including:
+
+- **Inline Comments/Annotations**: Add, edit, and delete comments on selected text passages with persistent YAML storage
+- **Help System**: Beautiful ANSI art help popup with full keyboard reference using CP437 encoding
+- **Hierarchical Navigation**: Table of contents with expandable sections and vim-style keybindings
+- **Text Selection**: Mouse support (single, double, and triple-click) with clipboard integration
+- **Reading History**: Quick access popup showing recently read books
+- **Book Statistics**: Popup displaying chapter and screen counts
+- **Search Functionality**: Book-wide text search with result navigation and highlighting
+- **Jump List Navigation**: Vim-style forward/backward navigation (Ctrl+o/Ctrl+i)
+- **Bookmarks**: Automatic bookmark persistence and reading progress tracking
+- **External Integration**: Open books in system EPUB readers
+- **Image Support**: Embedded images with dynamic sizing, placeholders, and full-screen popup viewer
+- **MathML Rendering**: Mathematical expressions converted to ASCII art with Unicode support
+- **Syntax Highlighting**: Colored code blocks with language detection
+- **Link Handling**: Display and follow hyperlinks
+- **Color Adaptation**: True color (24-bit) detection with smart fallback to 256-color palette
+- **Notification System**: Timed toast notifications with severity levels
+- **Performance Tools**: Profiling support with pprof and FPS monitoring
+- **Markdown AST Pipeline**: Modern HTML5ever-based text processing with preserved formatting
+- **Cross-platform**: macOS, Windows, and Linux support
+
+## Key Commands
+
+### Development
+- Build: `cargo build --release`
+- Run: `cargo run`
+- Check code: `cargo check`
+- Run linter: `cargo clippy`
+- Run tests: `cargo test`
+- Format code: `cargo fmt`
+
+### Testing
+- Run all tests: `cargo test`
+- Run specific test: `cargo test <test_name>`
+- Run tests with output: `cargo test -- --nocapture`
+
+### Development Tools
+- **EPUB Inspector**: `cargo run --example epub_inspector <file.epub>` - Extracts and displays raw HTML content from EPUB chapters for debugging text processing issues
+- **MathML Test**: `cargo run --example test_mathml_rust` - Tests MathML parsing and ASCII rendering functionality
+- **Debug Bug Dump**: `cargo run --example dump_bug` - Debugging tool for lists and AST structures
+
+## Architecture
+
+### Core Components
+
+1. **main.rs** - Entry point and terminal setup
+   - Terminal initialization and panic handling
+   - Main event loop bootstrapping
+   - Application lifecycle management
+
+2. **main_app.rs** - Core application logic (src/main_app.rs)
+   - `App` struct: Central state management and component orchestration
+   - `FocusedPanel` enum: Tracks which panel has keyboard focus
+   - `PopupWindow` enum: Manages popups (ReadingHistory, BookStats, ImagePopup, HelpPopup)
+   - High-level action handling (open book, navigate chapters, switch modes)
+   - Mouse event batching and processing
+   - Vim-like keybinding support with multi-key sequences and Space-prefixed commands
+   - Text selection and clipboard integration
+   - Comment/annotation management with Arc<Mutex<>> sharing
+   - Bookmark management with throttled saving
+   - Reading history popup management
+   - Book statistics popup display
+   - Help popup display with ANSI art
+   - Image popup display and interaction
+   - Notification system integration
+   - Jump list navigation support
+   - Search mode integration
+   - Performance profiling integration with pprof
+   - FPS monitoring through `FPSCounter` struct (defined inline in main_app.rs)
+
+3. **bookmark.rs** - Bookmark persistence (src/bookmark.rs)
+   - `Bookmark` struct: Stores chapter, scroll position, and timestamp
+   - `Bookmarks` struct: Manages bookmarks for multiple books
+   - JSON-based persistence to `bookmarks.json`
+   - Tracks last read timestamp using chrono
+
+4. **book_manager.rs** - Book discovery and management (src/book_manager.rs)
+   - `BookManager` struct: Manages EPUB file discovery
+   - `BookInfo` struct: Stores book path and display name
+   - Automatic scanning of current directory for EPUB files
+   - EPUB document loading and validation
+
+5. **book_list.rs** - File browser UI component (src/book_list.rs)
+   - `BookList` struct: Manages book selection UI
+   - Displays books with last read timestamps
+   - Integrated with bookmark system for showing reading history
+   - Implements `VimNavMotions` for consistent navigation
+
+6. **navigation_panel.rs** - Left panel navigation manager (src/navigation_panel.rs)
+   - `NavigationPanel` struct: Manages mode switching between book list and TOC
+   - `NavigationMode` enum: BookSelection vs TableOfContents vs BookSearch
+   - Renders appropriate sub-component based on mode
+   - Handles mouse clicks and keyboard navigation
+   - Extracts user actions for the main app
+
+7. **table_of_contents.rs** - Hierarchical TOC display (src/table_of_contents.rs)
+   - `TableOfContents` struct: Manages TOC rendering and interaction
+   - `TocItem` enum: ADT for Chapter vs Section with children
+   - Expandable/collapsible sections
+   - Current chapter highlighting
+   - Mouse and keyboard navigation support
+
+8. **widget/text_reader/** - Main reading view component (MODULARIZED into src/widget/text_reader/)
+   - `MarkdownTextReader` struct: Manages text display and scrolling using Markdown AST
+   - Implements `TextReaderTrait` for abstraction
+   - **Now split across multiple files** (see components #44-51 for details):
+     - `mod.rs` - Main struct and coordination
+     - `rendering.rs` - Content rendering to spans
+     - `navigation.rs` - Scrolling and movement
+     - `selection.rs` - Mouse selection handling
+     - `text_selection.rs` - Selection state
+     - `images.rs` - Image loading and display
+     - `search.rs` - Search highlighting
+     - `comments.rs` - Comment rendering and editing
+     - `types.rs` - Type definitions
+   - Reading time calculation (250 WPM default)
+   - Chapter progress percentage tracking
+   - Smooth scrolling with acceleration
+   - Half-screen scrolling with visual highlights
+   - Text selection with clipboard integration
+   - Implements `VimNavMotions` for consistent navigation
+   - Embedded image display with dynamic sizing
+   - Image placeholders with loading status
+   - Link information extraction and display
+   - Auto-scroll functionality during text selection
+   - Raw HTML viewing mode toggle
+   - Background image loading coordination
+   - Rich text rendering with preserved formatting
+   - Search highlighting support
+   - Jump position tracking
+   - **Comment rendering and editing with textarea overlay**
+
+9. **text_reader_trait.rs** - Text reader abstraction (src/text_reader_trait.rs)
+   - `TextReaderTrait`: Common interface for different text reader implementations
+   - Unified API for scrolling, navigation, and content access
+   - Enables swapping between different rendering implementations
+
+10. **text_selection.rs** - Text selection system (src/text_selection.rs)
+    - `TextSelection` struct: Manages selection state and rendering
+    - Mouse-driven selection (drag, double-click for word, triple-click for paragraph)
+    - Multi-line selection support
+    - Clipboard integration via arboard
+    - Visual highlighting with customizable colors
+    - Coordinate validation and conversion
+
+11. **reading_history.rs** - Recent books popup (src/reading_history.rs)
+    - `ReadingHistory` struct: Manages history display and interaction
+    - Extracts recent books from bookmarks
+    - Chronological sorting with deduplication
+    - Popup overlay with centered layout
+    - Mouse and keyboard navigation
+    - Implements `VimNavMotions` for consistent navigation
+
+12. **system_command.rs** - External application integration (src/system_command.rs)
+    - `SystemCommandExecutor` trait: Abstraction for system commands
+    - Cross-platform file opening (macOS, Windows, Linux)
+    - EPUB reader detection (Calibre, ClearView, Skim, FBReader)
+    - Chapter-specific navigation support
+    - Mockable interface for testing
+
+13. **event_source.rs** - Input event abstraction (src/event_source.rs)
+    - `EventSource` trait: Abstraction for event polling/reading
+    - `KeyboardEventSource`: Real crossterm-based implementation
+    - `SimulatedEventSource`: Mock for testing
+    - Helper methods for creating test events
+
+14. **theme.rs** - Color theming (src/theme.rs)
+    - `Base16Palette` struct: Color scheme definition
+    - Oceanic Next theme implementation
+    - Dynamic color selection based on UI mode
+
+15. **panic_handler.rs** - Enhanced panic handling (src/panic_handler.rs)
+    - `initialize_panic_handler()`: Sets up panic hooks based on build type
+    - Debug builds: Uses `better-panic` for detailed backtraces
+    - Release builds: Uses `human-panic` for user-friendly crash reports
+    - Terminal state restoration on panic to prevent broken terminal
+    - Proper mouse capture restoration to maintain mouse functionality post-panic
+
+
+16. **mathml_renderer.rs** - MathML to ASCII conversion (src/mathml_renderer.rs)
+    - `MathMLParser` struct: Converts MathML expressions to terminal-friendly ASCII art
+    - `MathBox` struct: Represents rendered mathematical expressions with positioning
+    - Unicode subscript/superscript support for improved readability
+    - LaTeX notation fallback for complex expressions
+    - Comprehensive fraction, square root, and summation rendering
+    - Multi-line parentheses for complex expressions
+    - Baseline alignment for proper mathematical layout
+
+17. **markdown.rs** - Markdown AST definitions (src/markdown.rs)
+    - `Document` struct: Root container for parsed content
+    - `Node` struct: Individual content blocks with source tracking
+    - `Block` enum: Different content types (heading, paragraph, code, table, etc.)
+    - `Text` struct: Rich text with formatting and inline elements
+    - `Style` enum: Text formatting options (emphasis, strong, code, strikethrough)
+    - `Inline` enum: Inline elements (links, images, line breaks)
+    - `HeadingLevel` enum: H1-H6 heading levels
+    - Complete table support structures (rows, cells, alignment)
+
+### Comments and Annotations System
+
+18. **comments.rs** - Comment persistence and management (src/comments.rs)
+    - `BookComments` struct: Manages all comments for a single book
+    - `Comment` struct: Individual comment with text, timestamp, and position
+    - `CommentPosition` struct: Tracks chapter, paragraph index, and word range
+    - YAML-based persistence to `.bookokcat_comments/book_<md5hash>.yaml`
+    - MD5 hashing of book filenames for unique identification
+    - Efficient indexing: `chapter_href -> paragraph_index -> comment_indices`
+    - Auto-saving on modifications
+    - Chronological sorting and duplicate prevention
+    - Thread-safe access via Arc<Mutex<>>
+
+19. **widget/text_reader/comments.rs** - Comment UI integration (src/widget/text_reader/comments.rs)
+    - Comment rendering as purple quote-style blocks
+    - Timestamp display format: "Note // MM-DD-YY HH:MM"
+    - Textarea overlay for comment editing using tui-textarea
+    - Comment deletion at cursor position
+    - Visual styling with borders and proper coloring
+    - Auto-scrolling to keep textarea visible
+    - Minimum 3-line height for input area
+    - Integration with text selection for comment creation
+
+### Help and Notification Systems
+
+20. **widget/help_popup.rs** - Help popup with ANSI art (src/widget/help_popup.rs)
+    - Beautiful ANSI art header from `readme.ans` (CP437 encoding)
+    - Full keyboard reference from `readme.txt`
+    - vt100 parser for ANSI sequence rendering
+    - SAUCE metadata stripping for proper display
+    - Custom ANSI preprocessing (ESC[1;R;G;Bt conversion)
+    - Vim-style navigation (j/k, gg/G, Ctrl+d/u)
+    - Scrollbar support for long content
+    - 90 columns wide, 94% vertical screen coverage
+    - Toggled with `?` key
+
+21. **notification.rs** - Toast notification system (src/notification.rs)
+    - `Notification` struct: Individual notification with message and severity
+    - `NotificationManager` struct: Global notification state
+    - `NotificationLevel` enum: Info, Warning, Error
+    - 5-second default timeout with automatic expiration
+    - Bottom-right corner rendering
+    - Color-coded by severity level
+    - Interactive dismissal on click
+    - Time-based auto-dismissal tracking
+
+### Color and Terminal Capabilities
+
+22. **color_mode.rs** - Terminal color detection (src/color_mode.rs)
+    - `supports_true_color()`: Detects 24-bit RGB terminal support
+    - `smart_color()`: Adaptive color selection based on terminal capabilities
+    - `rgb_to_256color()`: Smart RGB to 256-color palette conversion
+    - Environment variable checking (COLORTERM, TERM)
+    - Grayscale palette detection and optimization
+    - Distance-based color matching algorithm
+    - Affects image protocol selection (Kitty/Sixel/Halfblocks)
+
+### Type Definitions and Utilities
+
+23. **types.rs** - Common type definitions (src/types.rs)
+    - `LinkInfo` struct: Link information with URL and type
+    - Link classification helpers
+    - Shared type definitions across modules
+
+### Input Handling Components (src/inputs/)
+
+24. **inputs/event_source.rs** - Event abstraction (src/inputs/event_source.rs) - MOVED
+    - `EventSource` trait: Abstraction for event polling/reading
+    - `KeyboardEventSource`: Real crossterm-based implementation
+    - `SimulatedEventSource`: Mock for testing
+    - Helper methods for creating test events
+
+25. **inputs/key_seq.rs** - Multi-key sequence tracking (src/inputs/key_seq.rs)
+    - `KeySeqTracker` struct: Manages vim-style multi-key sequences
+    - 1-second timeout for sequence completion
+    - Tracks sequences like "gg" for vim motions
+    - Automatic timeout and reset handling
+
+26. **inputs/mouse_tracker.rs** - Enhanced mouse handling (src/inputs/mouse_tracker.rs)
+    - `MouseTracker` struct: Tracks mouse events for multi-click detection
+    - `ClickType` enum: Single, Double, Triple click detection
+    - Distance threshold (3 cells) for multi-click validation
+    - Time-based click grouping
+    - Position tracking for drag operations
+
+27. **inputs/text_area_utils.rs** - Textarea input mapping (src/inputs/text_area_utils.rs)
+    - Crossterm to tui-textarea input conversion
+    - Keyboard event mapping for textarea widget
+    - Handles special keys and modifiers
+
+### Search and Navigation Components
+
+28. **search.rs** - General search state and functionality (src/search.rs)
+    - `SearchState` struct: Manages search state across the application
+    - Tracks current search query and mode
+    - Integrates with main app for search coordination
+
+29. **search_engine.rs** - Search engine implementation (src/search_engine.rs)
+    - `SearchEngine` struct: Core search functionality
+    - Case-insensitive search with result ranking
+    - Search result scoring
+    - Multi-chapter search support
+    - Note: fuzzy-matcher dependency currently commented out
+
+30. **widget/book_search.rs** - Book-wide search UI (src/widget/book_search.rs)
+    - `BookSearch` struct: Full-text search across entire book
+    - Search result navigation with chapter context
+    - Visual search result highlighting
+    - Implements `VimNavMotions` for consistent navigation
+    - Search result list with context preview
+
+31. **jump_list.rs** - Vim-like jump list navigation (src/jump_list.rs)
+    - `JumpList` struct: Maintains navigation history
+    - Forward/backward navigation (Ctrl+o/Ctrl+i)
+    - Chapter and position tracking
+    - Circular buffer implementation
+    - Integrates with main navigation flow
+
+32. **widget/book_stat.rs** - Book statistics popup (src/widget/book_stat.rs)
+    - `BookStat` struct: Displays book statistics
+    - Chapter count and screen count per chapter
+    - Total screens calculation
+    - Centered popup display
+    - Quick overview of book structure
+
+### UI Component Modules (src/components/)
+
+33. **components/table.rs** - Custom table widget (src/components/table.rs) - MOVED
+    - `Table` struct: Enhanced table rendering
+    - Column alignment support
+    - Header and content separation
+    - Responsive width calculation
+    - Used by book statistics and search results
+
+34. **components/mathml_renderer.rs** - MathML rendering (src/components/mathml_renderer.rs) - MOVED
+    - Previously at root level, now organized under components/
+    - MathML to ASCII conversion functionality
+    - See component #16 for detailed description
+
+### Parsing Components (src/parsing/)
+
+35. **parsing/html_to_markdown.rs** - HTML to Markdown AST conversion (src/parsing/html_to_markdown.rs)
+    - `HtmlToMarkdownConverter` struct: Converts HTML content to clean Markdown AST
+    - Uses html5ever for robust DOM parsing and traversal
+    - Handles various HTML elements (headings, paragraphs, images, MathML)
+    - Integrates MathML processing with mathml_to_ascii conversion
+    - Preserves text formatting and inline elements during conversion
+    - Entity decoding for proper text representation
+
+36. **parsing/markdown_renderer.rs** - Markdown AST to string rendering (src/parsing/markdown_renderer.rs)
+    - `MarkdownRenderer` struct: Converts Markdown AST to formatted text output
+    - Simple AST traversal and string conversion without cleanup logic
+    - Applies Markdown formatting syntax (headers, bold, italic, code)
+    - Handles inline elements (links, images, line breaks)
+    - H1 uppercase transformation for consistency
+    - Proper spacing and formatting for terminal display
+
+37. **parsing/text_generator.rs** - Legacy regex-based HTML processing (src/parsing/text_generator.rs)
+    - Original regex-based implementation maintained for compatibility
+    - Direct HTML tag processing and text extraction
+    - Comprehensive entity decoding and content cleaning
+    - Used as fallback for certain parsing scenarios
+
+38. **parsing/toc_parser.rs** - TOC parsing implementation (src/parsing/toc_parser.rs)
+    - Parses NCX (EPUB2) and Nav (EPUB3) documents
+    - Hierarchical structure extraction
+    - Resource discovery and format detection
+    - Robust regex-based content extraction
+
+### Image Components (src/images/)
+
+39. **images/image_storage.rs** - Image extraction and caching (src/images/image_storage.rs)
+    - `ImageStorage` struct: Manages extracted EPUB images
+    - Automatic image extraction from EPUB files
+    - Directory-based caching in `.bookokcat_temp_images/` or `temp_images/`
+    - Thread-safe storage with Arc<Mutex>
+    - Deduplication of already extracted images
+
+40. **images/book_images.rs** - Book-specific image management (src/images/book_images.rs)
+    - `BookImages` struct: Manages images for current book
+    - Image path resolution from EPUB resources
+    - Integration with ImageStorage for caching
+    - Support for various image formats (PNG, JPEG, etc.)
+
+41. **images/image_placeholder.rs** - Image loading placeholders (src/images/image_placeholder.rs)
+    - `ImagePlaceholder` struct: Displays loading/error states
+    - `LoadingStatus` enum: NotStarted, Loading, Loaded, Failed
+    - Visual feedback during image loading
+    - Error message display for failed loads
+    - Configurable styling and dimensions
+
+42. **images/image_popup.rs** - Full-screen image viewer (src/images/image_popup.rs)
+    - `ImagePopup` struct: Modal image display
+    - Full-screen overlay with centered image
+    - Keyboard controls (Esc to close, navigation)
+    - Mouse interaction support
+    - Image scaling and aspect ratio preservation
+
+43. **images/background_image_loader.rs** - Async image loading (src/images/background_image_loader.rs)
+    - `BackgroundImageLoader` struct: Non-blocking image loads
+    - Thread-based background loading
+    - Prevents UI freezing during image loading
+    - Callback-based completion notification
+
+### Widget Components (src/widget/)
+
+The text reader has been modularized into multiple files under `src/widget/text_reader/`:
+
+44. **widget/text_reader/mod.rs** - Main text reader module
+    - `MarkdownTextReader` struct: Main reading view using Markdown AST
+    - Implements `TextReaderTrait` for abstraction
+    - Coordinates all text reader submodules
+    - See component #8 for high-level features
+
+45. **widget/text_reader/rendering.rs** - Content rendering logic
+    - Rich text span generation from Markdown AST
+    - Syntax highlighting for code blocks
+    - Table rendering
+    - Image placeholder rendering
+    - Link visualization
+    - Search highlight integration
+
+46. **widget/text_reader/navigation.rs** - Scrolling and navigation
+    - Smooth scrolling with acceleration
+    - Half-screen scrolling with visual highlights
+    - Jump to top/bottom
+    - Chapter navigation
+    - Implements `VimNavMotions` trait
+
+47. **widget/text_reader/selection.rs** - Mouse selection handling
+    - Click-to-position cursor
+    - Drag selection
+    - Double-click word selection
+    - Triple-click paragraph selection
+    - Auto-scroll during selection
+
+48. **widget/text_reader/text_selection.rs** - Text selection state
+    - Selection range tracking
+    - Multi-line selection support
+    - Visual highlighting
+    - Clipboard integration
+    - Coordinate validation
+
+49. **widget/text_reader/images.rs** - Image loading and display
+    - Background image loading coordination
+    - Image placeholder management
+    - Image popup triggering
+    - Dynamic image sizing
+    - Loading status tracking
+
+50. **widget/text_reader/search.rs** - Search functionality
+    - Search highlighting in rendered content
+    - Match position tracking
+    - Next/previous match navigation
+    - Search state integration
+
+51. **widget/text_reader/types.rs** - Type definitions
+    - `RenderedLine` struct: Line data with metadata
+    - `LineType` enum: Content, Image, Link, etc.
+    - `NodeReference`: AST node tracking
+    - Internal type definitions for text reader
+
+### Vendored Dependencies (src/vendored/)
+
+The application vendors the ratatui-image library for customization:
+
+52. **vendored/ratatui_image/** - Terminal image rendering (VENDORED, not crates.io)
+    - Complete ratatui-image implementation vendored for customization
+    - Protocol implementations: Kitty, Sixel, iTerm2, Halfblocks
+    - Image resizing and protocol selection
+    - Color mode-aware protocol selection
+    - ~10 files with image protocol handling
+    - Base64 encoding for image data
+    - Sixel compression with flate2
+
+### Test Utilities (src/test_utils/)
+
+53. **test_utils/simple_fake_books.rs** - Test book creation (src/test_utils/simple_fake_books.rs)
+    - Helper functions for creating test EPUB files
+    - Generates sample books with various content types
+    - Used in unit and integration tests
+
+54. **test_utils/mod.rs** - Test helper module
+    - Common test utilities and fixtures
+    - Mock data generation
+    - Test environment setup
+
+### Key Dependencies (Cargo.toml)
+
+**Edition:** Rust 2024
+
+**Core UI & Terminal:**
+- `ratatui` (0.29.0): Terminal UI framework
+- `crossterm` (0.29.0): Cross-platform terminal manipulation (updated from 0.27.0)
+
+**EPUB Handling:**
+- `epub` (2.1.4): EPUB file parsing
+- `zip` (0.6): EPUB file handling
+
+**Parsing & Text Processing:**
+- `regex` (1.10.3): HTML tag processing
+- `html5ever` (0.27): Modern HTML5 parsing
+- `markup5ever_rcdom` (0.3): DOM representation for html5ever
+- `roxmltree` (0.18): XML parsing for MathML processing
+- `textwrap` (0.16): Text wrapping utilities
+
+**Serialization & Persistence:**
+- `serde` (1.0): Serialization framework with derive support
+- `serde_json` (1.0): JSON serialization for bookmarks
+- `serde_yaml` (0.9): YAML serialization for comments
+- `md5` (0.7): Book hashing for comment file identification
+
+**Date/Time & Utilities:**
+- `chrono` (0.4): Timestamp handling with serde support
+- `once_cell` (1.19): Lazy static initialization
+
+**Error Handling & Logging:**
+- `anyhow` (1.0.79): Error handling
+- `simplelog` (0.12.1): Logging framework
+- `log` (0.4): Logging facade
+- `thiserror` (1.0.59): Error types (for vendored code)
+
+**Panic Handling:**
+- `better-panic` (0.3): Enhanced panic handling with backtraces (debug builds)
+- `human-panic` (2.0): User-friendly crash reports (release builds)
+- `libc` (0.2): System interface for exit codes
+
+**Clipboard & File Operations:**
+- `arboard` (3.4): Clipboard integration
+- `tempfile` (3.8): Temporary file management
+- `open` (5.3): Cross-platform file opening
+
+**Image Processing:**
+- `image` (0.25): Image processing and manipulation
+- `fast_image_resize` (3.0): Fast image resizing
+- `imagesize` (0.13): Image dimension detection
+
+**Image Protocols (Vendored Dependencies):**
+- `icy_sixel` (0.1.1): Sixel protocol support
+- `base64` (0.21.2): Base64 encoding for image data
+- `rand` (0.8.5): Random utilities
+- `flate2` (1.0): Compression for Sixel
+
+**UI Widgets:**
+- `tui-textarea` (0.7): Textarea widget for comment editing
+
+**ANSI Processing:**
+- `vt100` (0.15): ANSI parsing for help popup
+- `codepage-437` (0.1.0): CP437 to UTF-8 conversion
+
+**Performance:**
+- `pprof` (0.15): Performance profiling support with flamegraph and protobuf-codec
+
+**Platform-Specific:**
+- `rustix` (0.38.4): Unix-like systems (stdio, termios, fs) - non-Windows only
+- `windows` (0.58.0): Windows API (console, filesystem, security) - Windows only
+
+**Commented Out (Not Currently Used):**
+- ~~`html2text` (0.2.1)~~ - HTML to plain text conversion
+- ~~`fuzzy-matcher` (0.3)~~ - Fuzzy string matching (was for search)
+- ~~`dirs` (5.0)~~ - Directory utilities
+
+**Note:** The ratatui-image library is VENDORED in `src/vendored/`, not a crates.io dependency.
+
+### State Management
+The application maintains state through the `App` struct in `main_app.rs` which includes:
+- Current EPUB document and chapter information
+- Navigation panel with mode switching (book list vs TOC vs search)
+- Text reader (MarkdownTextReader) with scroll position and content state
+- Text selection state and clipboard integration
+- **Comments system** with Arc<Mutex<BookComments>> for shared state
+- Popup management (reading history, book stats, image viewer, help popup)
+- **Notification manager** for toast notifications
+- Search state and search mode tracking
+- Jump list for navigation history
+- Bookmark management with throttled saves
+- Book manager for file discovery
+- Focus tracking between panels
+- **Multi-key sequence tracker** for vim motions (gg, etc.)
+- **Mouse tracker** for double/triple-click detection
+- Mouse event batching for smooth scrolling
+- Image storage and caching system
+- Book-specific image management
+- Image popup display state
+- Background image loading coordination
+- Performance profiler state
+- FPS counter for performance monitoring
+- **Color mode detection** for terminal capabilities
+
+### Content Processing Pipeline
+
+**Modern HTML5ever-based Pipeline (default):**
+1. EPUB file is opened and validated
+2. Images are extracted and cached to `temp_images/` directory
+3. Table of contents is parsed from NCX or Nav documents
+4. Chapter HTML content is extracted via epub crate
+5. HTML is parsed using html5ever into proper DOM structure
+6. DOM is converted to clean Markdown AST with preserved formatting
+7. MathML elements are converted to ASCII art using mathml_renderer
+8. Markdown AST is rendered to formatted text output
+9. HTML entities are decoded in the final text
+10. Images are loaded asynchronously in background
+
+**Legacy Regex-based Pipeline (available as fallback):**
+1. EPUB file is opened and validated
+2. Images are extracted and cached to `temp_images/` directory
+3. Table of contents is parsed from NCX or Nav documents
+4. Chapter HTML content is extracted via epub crate
+5. Chapter title is extracted from h1/h2/title tags
+6. HTML is cleaned using regex (scripts, styles removed)
+7. HTML entities are decoded
+8. Code blocks are detected and preserved with syntax highlighting
+9. Tables are parsed and formatted for terminal display
+10. Image tags are replaced with placeholders
+11. Links are extracted and formatted
+12. Tags are converted to text formatting
+13. Paragraphs are indented for readability
+14. Text is wrapped to terminal width
+15. Images are loaded asynchronously in background
+
+**Text Generator Selection:**
+The application primarily uses the Markdown AST-based pipeline through MarkdownTextReader for rendering, with html_to_markdown.rs handling the HTML to AST conversion.
+
+### User Interface Features
+
+**Navigation & Organization:**
+- **Navigation Panel**: Switchable between book list, table of contents, and search results
+- **File Browser Mode**: Lists all EPUB files with last read timestamps
+- **Table of Contents**: Hierarchical view with expandable sections (H/L to collapse/expand all)
+- **Reading History**: Quick access popup for recently read books (Space+h)
+- **Book Statistics**: Popup showing chapter and screen counts (Space+d)
+- **Help System**: Beautiful ANSI art help popup with full keyboard reference (? key)
+
+**Reading & Annotation:**
+- **Reading Mode**: Displays formatted text with chapter info using Markdown AST
+- **Comments/Annotations**: Add, edit, and delete inline comments on selected text (a/d keys)
+- **Text Selection**: Mouse-driven selection with clipboard support (drag, double/triple-click)
+- **Progress Tracking**: Shows chapter number, reading progress %, and time remaining
+- **Raw HTML View**: Toggle to view original HTML content (Space+s)
+- **Copy Functions**: Copy selection (c), entire chapter (Space+c), or debug transcript (Space+z)
+
+**Search & Navigation:**
+- **Search Functionality**: Book-wide search with result navigation (/ to search, Space+f/F for book search)
+- **Jump List Navigation**: Vim-style forward/backward navigation history (Ctrl+o/Ctrl+i)
+- **Vim Navigation**: Consistent vim-like keybindings throughout including multi-key sequences
+- **Smart Notifications**: 5-second toast notifications for user feedback
+
+**Content Rendering:**
+- **Embedded Images**: Display images inline with dynamic sizing
+- **Image Placeholders**: Loading indicators with status feedback
+- **Image Popup**: Full-screen image viewer with keyboard controls (Enter on image)
+- **Syntax Highlighting**: Colored code blocks with language detection
+- **Table Support**: Formatted table display in terminal
+- **Link Display**: Hyperlinks with URL information
+- **MathML Support**: Mathematical expressions rendered as ASCII art
+- **Unicode Math**: Subscripts and superscripts using Unicode characters
+- **LaTeX Fallback**: LaTeX notation for complex mathematical expressions
+
+**System Integration:**
+- **External Reader Integration**: Open books in GUI EPUB readers (Space+o)
+- **Color Adaptation**: True color (24-bit) with smart fallback to 256-color palette
+- **Cross-Platform**: macOS, Windows, and Linux support
+- **Responsive Design**: Adjusts to terminal size changes
+
+**Performance & Debugging:**
+- **FPS Monitor**: Real-time performance monitoring overlay
+- **Performance Profiler**: pprof integration for profiling (p key)
+- **Mouse Event Batching**: Smooth scrolling with flood prevention
+
+### Keyboard Controls
+
+**Vim-Style Navigation:**
+- `j`/`k`: Navigate down/up (works in all lists and reader)
+- `h`/`l`: Previous/next chapter in reader; collapse/expand in TOC
+- `Ctrl+d`/`Ctrl+u`: Scroll half screen down/up with highlight
+- `gg`: Jump to top (vim-style multi-key sequence, 1-second timeout)
+- `G`: Jump to bottom
+- `Ctrl+o`/`Ctrl+i`: Navigate backward/forward in jump list
+
+**Search:**
+- `/`: Enter search mode (vim-style search)
+- `n`/`N`: Navigate to next/previous search result
+
+**Global Commands:**
+- `Tab`: Switch focus between navigation panel and content view
+- `Enter`: Select file/chapter/search result or expand/collapse TOC sections
+- `?`: Toggle help popup with ANSI art
+- `q`: Quit the application
+- `Esc`: Cancel selection, close popups, exit search mode, or exit image viewer
+
+**Comments/Annotations:**
+- `a`: Add or edit comment on selected text
+- `d`: Delete comment at cursor position (when on comment line)
+- `c` or `Ctrl+C`: Copy selection to clipboard
+
+**Space-Prefixed Commands (Modal):**
+- `Space+h`: Toggle reading history popup
+- `Space+d`: Show book statistics popup
+- `Space+o`: Open current book in external system EPUB reader
+- `Space+s`: Toggle raw HTML view
+- `Space+c`: Copy entire chapter to clipboard
+- `Space+z`: Copy debug transcript
+- `Space+f`: Reopen last book-wide search
+- `Space+F`: Start fresh book-wide search
+
+**Navigation Panel:**
+- `b`: Toggle between book list and table of contents
+- `H`/`L`: Collapse/expand all TOC entries
+
+**Reader Panel:**
+- `Enter`: Open image popup when cursor is on an image
+- `p`: Toggle performance profiler overlay
+
+**Note:** All popups (help, history, stats, search results) support vim navigation (j/k, gg/G, Ctrl+d/u, Enter to select, Esc to close).
+
+### Mouse Controls
+- **Click**: Select items in lists or TOC, or click on images/links
+- **Drag**: Select text in reading area
+- **Double-click**: Select word
+- **Triple-click**: Select paragraph
+- **Scroll**: Scroll content or navigate lists
+- **Click on image**: Open image in popup viewer
+- **Click on link**: Display link URL information
+
+## Snapshot Testing
+
+**IMPORTANT FOR AI ASSISTANTS:**
+1. **ALWAYS use SVG-based snapshot tests** - All UI tests MUST use the existing SVG snapshot testing infrastructure in `tests/svg_snapshots.rs`. DO NOT introduce any new testing approaches or frameworks.
+2. **NEVER update golden snapshots without explicit permission** - Golden snapshot files in `tests/snapshots/` should NEVER be updated with `SNAPSHOTS=overwrite` unless the user explicitly asks for it. This is critical for maintaining test integrity.
+
+BookRat uses visual snapshot testing for its terminal UI to ensure the rendering remains consistent across changes.
+
+### Running Snapshot Tests
+
+```bash
+# Run snapshot tests
+cargo test --test svg_snapshots
+
+# Run with automatic browser report opening
+OPEN_REPORT=1 cargo test --test svg_snapshots
+```
+
+### When Tests Fail
+
+When snapshot tests fail, the system generates a comprehensive HTML report showing:
+- Side-by-side visual comparison (Expected vs Actual)
+- Line statistics and diff information
+- Buttons to copy update commands to clipboard
+
+The report is saved to: `target/test-reports/svg_snapshot_report.html`
+
+### Updating Snapshots
+
+After reviewing the visual differences, you can update snapshots in two ways:
+
+1. **Update individual test**: Click "📋 Copy Update Command" button in the report
+   ```bash
+   SNAPSHOTS=overwrite cargo test test_file_list_svg
+   ```
+
+2. **Update all snapshots**: Click "📋 Copy Update All Command" button
+   ```bash
+   SNAPSHOTS=overwrite cargo test --test svg_snapshots
+   ```
+
+The `SNAPSHOTS=overwrite` environment variable tells snapbox to update the snapshot files with the current test output instead of failing when differences are found.
+
+### Test Architecture
+
+The snapshot testing system consists of:
+
+1. **svg_snapshots.rs** - Main test file that renders the TUI and captures SVG output. ALL NEW UI TESTS MUST BE ADDED HERE.
+2. **snapshot_assertions.rs** - Custom assertion function that compares snapshots
+3. **test_report.rs** - Generates the HTML visual diff report
+4. **visual_diff.rs** - Creates visual comparisons (no longer used directly)
+
+When adding new tests:
+- Add them to `tests/svg_snapshots.rs` following the existing pattern
+- Use `terminal_to_svg()` to convert terminal output to SVG
+- Use `assert_svg_snapshot()` for assertions
+- Never create new test files or testing approaches
+
+### Working with New Snapshot Tests
+
+**CRITICAL FOR AI ASSISTANTS:**
+When adding a new snapshot test, it is **expected and normal** for the test to fail initially because there is no saved golden snapshot file yet. This is not an error - it's the intended workflow.
+
+**Key Points:**
+1. **Test failure is expected** - New snapshot tests will always fail on first run since no golden snapshot exists
+2. **Focus on the generated snapshot** - When a new test fails, examine the debug SVG file (e.g., `tests/snapshots/debug_test_name.svg`) to verify it shows what the test scenario should display
+3. **Analyze the visual output** - Check that the generated snapshot accurately represents the UI state being tested
+4. **Verify test correctness** - Ensure the snapshot captures the intended behavior, UI elements, status messages, etc.
+5. **Only then consider updating** - If the generated snapshot looks correct for the test scenario, then it may be appropriate to create the golden snapshot
+
+**Example Workflow:**
+1. Add new test to `tests/svg_snapshots.rs`
+2. Run the test - it will fail (this is expected)
+3. Examine the debug SVG file to see the actual rendered output
+4. Verify the output matches what the test scenario should produce
+5. If correct, the golden snapshot can be created; if incorrect, fix the test logic first
+
+This approach ensures that snapshot tests accurately capture the intended UI behavior rather than just making tests pass.
+
+### Environment Variables
+
+- `OPEN_REPORT=1` - Automatically opens the HTML report in your default browser
+- `SNAPSHOTS=overwrite` - Updates snapshot files with current test output
+
+### Workflow
+
+1. Make changes to the TUI code
+2. Run `cargo test --test svg_snapshots`
+3. If tests fail, review the HTML report (saved to `target/test-reports/`)
+4. Click to copy the update command for accepted changes
+5. Paste and run the command to update snapshots
+6. Commit the updated snapshot files
+
+### Tips
+
+- Always review visual changes before updating snapshots
+- The report uses synchronized scrolling for easy comparison
+- Each test can be updated individually or all at once
+- Snapshot files are stored in `tests/snapshots/`
+
+## Architecture Patterns
+
+### Design Principles
+- **Trait-based abstraction**: Key external dependencies (`EventSource`, `SystemCommandExecutor`) are abstracted behind traits for testability
+- **Component delegation**: The `NavigationPanel` manages mode switching and delegates rendering to appropriate sub-components
+- **ADT modeling**: The `TocItem` enum uses algebraic data types for type-safe hierarchical structures
+- **Consistent navigation**: The `VimNavMotions` trait provides uniform vim-style navigation across all components
+- **Mock-friendly design**: All external interactions are abstracted to enable comprehensive testing
+
+### Component Communication
+1. **Main App Orchestration**: `main_app.rs` coordinates all components and handles high-level application logic
+2. **Event Flow**: Events flow from `event_source.rs` → `main_app.rs` → relevant components
+3. **Panel Focus**: The `FocusedPanel` enum determines which component receives keyboard events
+4. **Action Propagation**: Components return actions (e.g., `SelectedActionOwned`) that the main app processes
+5. **State Updates**: State changes trigger re-renders through the main render loop
+
+## Important Notes
+
+**File Management & Persistence:**
+- The application scans the current directory for EPUB files on startup
+- Bookmarks are automatically saved to `bookmarks.json` when navigating between chapters or files
+- **Comments are persisted to `.bookokcat_comments/book_<md5hash>.yaml` per book**
+- Images are extracted to `.bookokcat_temp_images/` or `temp_images/` and cached for performance
+- The most recently read book is auto-loaded on startup
+- Logging is written to `bookokcat.log` for debugging
+
+**UI & Navigation:**
+- The TUI uses vim-like keybindings throughout all components with Space-prefixed modal commands
+- Multi-key sequences (like "gg") have a 1-second timeout
+- **Help popup (`?` key) displays ANSI art with CP437 encoding and full keyboard reference**
+- Mouse events are batched to prevent flooding and ensure smooth scrolling
+- **Mouse tracker detects double/triple-clicks with 3-cell distance threshold**
+- Text selection automatically scrolls the view when dragging near edges
+- **Notification system shows toast messages for 5 seconds in bottom-right corner**
+
+**Reading Features:**
+- Reading speed is set to 250 words per minute for time calculations
+- Scroll acceleration increases speed when holding down scroll keys
+- **Inline comments/annotations can be added, edited, and deleted on selected text**
+- Jump list maintains a navigation history for easy backward/forward navigation (Ctrl+o/Ctrl+i)
+- Book statistics provide a quick overview of book structure and size
+
+**Content Processing:**
+- The application supports both EPUB2 (NCX) and EPUB3 (Nav) table of contents formats
+- The text processing pipeline uses a Markdown AST-based approach with html5ever parser
+- The main text reader is MarkdownTextReader, which uses the Markdown AST pipeline
+- MathML expressions are converted to ASCII art with Unicode subscripts/superscripts when possible
+- Mathematical expressions support advanced layouts including fractions, square roots, and summations
+- Code blocks support syntax highlighting integrated into the rendering pipeline
+- Tables are parsed and formatted for terminal display
+
+**Images & Media:**
+- Image loading happens asynchronously to prevent UI blocking
+- **Color mode detection adapts between true color (24-bit) and 256-color palettes**
+- **The application VENDORS ratatui-image in `src/vendored/` - it's not a crates.io dependency**
+- Image protocols (Kitty/Sixel/iTerm2/Halfblocks) are selected based on terminal capabilities
+
+**Performance & Integration:**
+- Performance profiling can be enabled with pprof integration (`p` key)
+- FPS monitoring helps track UI performance in real-time
+- External EPUB readers are detected based on the platform (macOS, Windows, Linux)
+
+**Search:**
+- Search functionality supports case-insensitive matching
+- Note: fuzzy-matcher dependency is currently commented out
+
+**Code Organization:**
+- **MarkdownTextReader is modularized across multiple files in `src/widget/text_reader/`**
+- **Input handling is organized in `src/inputs/` module**
+- **UI components are in `src/components/` and `src/widget/`**
+- **Rust edition 2024 is used**
+
+## Performance Considerations
+- **CRITICAL**: Performance is one of the most important aspects of this project
+- Never make significant changes like switching libraries unless explicitly instructed
+- Always consider performance implications of any changes
+- Image loading is done asynchronously to maintain UI responsiveness
+- Images are cached after extraction to avoid repeated disk I/O
+- Text content is cached to avoid expensive re-parsing
+- Mouse events are batched to prevent performance degradation
+
+## Error Handling Guidelines
+- When logging errors, the received error object should always be logged (when possible)
+- Never log a guess of what might have happened - only actual errors
+- Use proper error context with anyhow for better debugging
+- Preserve error chains for proper error tracing
+- When introducing new regexes they should always be cached to avoid recompilation cycles
+- Rendering of items in markdown_text_reader.rs should always use Base16Palette and should avoid relying on default ratatui style
+
+## Rich Text Rendering Architecture (MarkdownTextReader)
+
+### Core Design Principle
+All markdown elements (lists, quotes, definition lists, tables, etc.) must preserve rich text formatting (bold, italic, links, etc.) rather than converting to plain text. This ensures consistent formatting behavior across all content types.
+
+### render_text_spans API
+The central method for rendering rich text content is `render_text_spans()`:
+
+```rust
+fn render_text_spans(
+    &mut self,
+    spans: &[Span<'static>],          // Pre-styled spans with formatting
+    prefix: Option<&str>,             // Optional prefix (bullets, "> ", etc.)
+    node_ref: NodeReference,
+    lines: &mut Vec<RenderedLine>,
+    total_height: &mut usize,
+    width: usize,
+    indent: usize,                    // Proper indentation support
+    add_empty_line_after: bool,
+)
+```
+
+**Key Features:**
+- **Prefix Support**: Automatically adds prefixes like "• ", "> ", or numbered bullets
+- **Indentation**: Properly handles indentation levels (2 spaces per level)
+- **Rich Text Preservation**: Maintains all styling from `render_text_or_inline()`
+- **Text Wrapping**: Handles text wrapping while preserving formatting
+- **Link Coordinates**: Automatically fixes link coordinates after wrapping
+
+### Standard Rendering Pattern
+For any markdown element containing text:
+
+1. **Generate styled spans** using `render_text_or_inline()`
+2. **Apply element-specific styling** (e.g., quote color, bold for definitions)
+3. **Call render_text_spans** with appropriate prefix and indentation
+4. **Update line types** if needed for specific elements
+
+```rust
+// Example: List item rendering
+let mut content_spans = Vec::new();
+for item in content.iter() {
+    content_spans.extend(self.render_text_or_inline(item, palette, is_focused, *total_height));
+}
+
+self.render_text_spans(
+    &content_spans,
+    Some(&prefix),           // "• " or "1. "
+    node_ref.clone(),
+    lines,
+    total_height,
+    width,
+    indent,                  // Proper indentation
+    false,                   // Don't add empty line
+);
+```
+
+### CRITICAL: Avoid text_to_string()
+**NEVER** use `text_to_string()` for rendering content as it strips all formatting:
+- ❌ `let text_str = self.text_to_string(content);` (loses bold, italic, links)
+- ✅ `content_spans.extend(self.render_text_or_inline(item, ...)` (preserves formatting)
+
+### Updated Elements
+The following elements now properly support rich text:
+- **Lists**: Bullets/numbers + rich text content with proper indentation
+- **Quotes**: "> " prefix + italic styling + rich text content
+- **Definition Lists**: Bold terms + indented definitions with rich text
+- **Future elements**: Should follow the same pattern
+
+This architecture ensures that bold text, italic text, links, and other formatting work consistently across all markdown elements without hardcoding support for each element type.
+
+# important-instruction-reminders
+- Don't use eprintln if you need logging. This is TUI application. eprintln breaks UI. Use log crate to do proper logging
+- Always log actual error that happened when creating "failed" branch logging
+
+- the text we are working on is in unicode. we should never try byte manipulations to get chunks of it
+
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+- Do not put useless comments. Comments should be only for code that does something unusual or tricky

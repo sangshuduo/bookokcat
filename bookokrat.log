@@ -1,0 +1,6 @@
+21:40:49 Starting Bookokrat EPUB reader
+21:40:49 Image picker initial protocol type: Kitty
+21:40:49 Kitty protocol detected, using Kitty
+21:40:49 Final protocol type: Kitty
+21:40:49 [DEBUG] (1) bookokrat::main_app: Initial terminal size: 188x52
+21:40:52 Shutting down Bookokrat
